@@ -1,8 +1,13 @@
 # TeslaGen lib modules WAY-MOD MODULE v1.7
+"""
+AI Image Generation module for Life-Book Bot.
+Migrated to aiogram 3.x - AI logic preserved intact.
+"""
 import os, random, shutil, base64, json, requests
 import time, re
 from gradio_client import Client # AI_GEN2
-from telegram.ext import ContextTypes
+from aiogram.fsm.context import FSMContext
+# Removed: from telegram.ext import ContextTypes
 from fre0lib import SEX, SEFoB, Gechate
 # from way_lib import GetUid, GetCid, replace_emojis, SEX, SEFoB, GetVAR, GetVar, SetVar
 # from deep_translator import GoogleTranslator as Translator

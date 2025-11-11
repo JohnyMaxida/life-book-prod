@@ -1,12 +1,17 @@
-# MODERATOR 
+# MODERATOR
+"""
+Moderator functions for Life-Book bot.
+Migrated to aiogram 3.x.
+"""
 import os, json, requests
-from telegram.ext import ContextTypes
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from answers import Get_day_responses  #, Get_task_response
-# from lifeman import save_status, get_status
-from active import *
-from passive import *
-# from reports import *
+from aiogram.fsm.context import FSMContext
+from aiogram.types import InlineKeyboardButton
+from report_manager import Get_day_responses  # Moved from answers.py to report_manager.py
+# Import specific functions instead of wildcard imports
+from active import (Form_Port, Inc_Lives, Inc_Vitas, get_tariff_infoby_index)
+from passive import (Make_Block, Get_Var, Set_Var, Get_Uid, Update_step, Adelay, ESU)
+from ui_blocks import SEX, Make_KEYB, Make_MENU
+from lifeman_new import get_role, save_pays, save_role, IsUserPreme
 
 bug_repo = {}
 Moderator_DIR = 'LIFE-REPORTS' 
@@ -19,144 +24,147 @@ BUG = False
 def is_BUG()->bool:
     return BUG
 
-async def SEX_PRO(block_name, context: ContextTypes.DEFAULT_TYPE):
+async def SEX_PRO(block_name: str, state: FSMContext):
+    """Send block with picture if available."""
     Block_PAK = Make_Block(block_name)
-    return await SEX_PROD(Block_PAK, context)
-    
-async def SEX_PROD(block_pak, context: ContextTypes.DEFAULT_TYPE):
+    return await SEX_PROD(Block_PAK, state)
+
+async def SEX_PROD(block_pak, state: FSMContext):
+    """Send block with picture or text menu."""
     message_text, keyboard, picture_path = block_pak
     if picture_path:
         print ("SEX_PROD: Найдена фотка, отправляем фото-блок c меню")
         with open(picture_path, 'rb') as photo:
-            return await SEX(message_text, context, DOC = photo, MENU = keyboard, FORMAT = 'B')
+            return await SEX(message_text, state, DOC = photo, MENU = keyboard, FORMAT = 'B')
     else:
         print ("SEX_PROD: Фотка не найдена, отправляем текст c меню")
-        return await SEX(message_text, context, MENU = keyboard, FORMAT = 'B')
+        return await SEX(message_text, state, MENU = keyboard, FORMAT = 'B')
 
-async def Write_BUG(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global BUG    
-    Update_step(7, context)  # Write BUG-report    
-    user_id = Get_Uid(context)
-    user_name = Get_Var('user_nick', context)    
+async def Write_BUG(state: FSMContext):
+    """
+    Write bug report to DEV chat.
+
+    Args:
+        state: FSMContext for user state management
+    """
+    global BUG
+    await Update_step(7, state)  # Write BUG-report
+    user_id = await Get_Uid(state)
+    user_name = await Get_Var('user_nick', state)
     t1 = Form_Port(16, None)  # шапка 1 длинная
     t2 = Form_Port(2, user_name)  # имя
     t3 = Form_Port(4, user_id) # айди
     t3 += "   >🔍>"
-    header = "\n".join([t1, t2, t3])  
-    MSG = await SEX(header, context, SENDER=DEV_CHAT_id)     
-    Set_Var('rep_mid', MSG.message_id, context)
-    # text = TextBlock('feed_bug')
+    header = "\n".join([t1, t2, t3])
+    MSG = await SEX(header, state, SENDER=DEV_CHAT_id)
+    await Set_Var('rep_mid', MSG.message_id, state)
     BUG = True
-    await SEX_PRO('FEED_RUN', context)
-    # button_1 = InlineKeyboardButton("Закончить ➡️", callback_data='☎️send')
-    # button_2 = InlineKeyboardButton("Отмена", callback_data='☎️back')       
-    # buttons = [[button_1, button_2]]
-    # keybug = Make_KEYB(buttons)         
-    # await SEX(text, context, MENU=keybug, FORMAT='B') 
-    # return
+    await SEX_PRO('FEED_RUN', state)
 
-async def Send_BUG(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def Send_BUG(state: FSMContext):
+    """
+    Send bug report notification to moderator.
+
+    Args:
+        state: FSMContext for user state management
+    """
     global BUG
-    Update_step(19, context)  # exit mode
+    await Update_step(19, state)  # exit mode
     BUG = False
-    # await SEX("Ввод данных закончен 👌🏻\nВаши сообщения и файлы будут высланы на проверку 🙏", context)
-    Moderator_ID = Get_Var ('MOD_ID', context)    
+    Moderator_ID = await Get_Var('MOD_ID', state)
     print (">> Идет Извещение Модератора: BUG-report")
-    # print(TEX)    
-    
-    rep_mid = Get_Var('rep_mid', context)
+
+    rep_mid = await Get_Var('rep_mid', state)
     chat_id = str(DEV_CHAT_id).replace('-100', '')
     message_link = f"https://t.me/c/{chat_id}/{rep_mid}"
     print('Репорт MSG LINK=', message_link)
-    
-    text = f"Уважаемый Модератор 🎅🏻\nВ наш DEV-чат пришел Рапорт об ошибке 🧾\n`{message_link}`" 
-    
-    
-    await SEX(text, context, SENDER=Moderator_ID) 
-    # await FEED_GOT(context)    
+
+    text = f"Уважаемый Модератор 🎅🏻\nВ наш DEV-чат пришел Рапорт об ошибке 🧾\n`{message_link}`"
+
+    await SEX(text, state, SENDER=Moderator_ID)
     await Adelay(0.5)
-    # await bugInput_Forward (Moderator_ID, context)
-    buttons = [[InlineKeyboardButton("На Страницу Статуса", callback_data='begin_game')]]
+    buttons = [[InlineKeyboardButton(text="На Страницу Статуса", callback_data='begin_game')]]
     text = "Ввод данных закончен 👌🏻\nВаши сообщения и файлы будут высланы на проверку 🙏"
-    await Make_MENU(text, buttons, context) 
+    await Make_MENU(text, buttons, state)
     return
 
   
  
-async def MODER_RUN(choice, update, context: ContextTypes.DEFAULT_TYPE):
-    TOKEN = Get_Var('BOT_TOKEN', context) 
-    Moderator_ID = Get_Var ('MOD_ID', context)
-    # status = get_status()
-    
-    
+async def MODER_RUN(choice: str, state: FSMContext):
+    """
+    Handle moderator actions.
+
+    Args:
+        choice: Moderator's choice (approve/refuse)
+        state: FSMContext for user state management
+    """
+    TOKEN = await Get_Var('BOT_TOKEN', state)
+    Moderator_ID = await Get_Var('MOD_ID', state)
+
     if choice == '🎅🏻approve':
         print("> Модератор - ПРИНЯТЬ+ ")
-        await Mod_Up_Approve(context)
-    
-    elif choice == '🎅🏻refuse':
-        print("> Модератор - ОТКЛОНИТЬ- ")  
-        # await SEX("Надо ввести причину отказа:", context, SENDER=Moderator_ID)
-        await Mod_Up_Refuse(context)
-    
-    # elif choice == '🎅🏻back':
-        # print("> Модератор переход в меню")  
-        # await REP_Ready(rep_file, context)
+        await Mod_Up_Approve(state)
 
-async def Mod_Up_Approve(context: ContextTypes.DEFAULT_TYPE):
-    TOKEN = Get_Var('BOT_TOKEN', context) 
-    Moderator_ID = Get_Var ('MOD_ID', context)
-    tarr = Get_Var ('user_tarif', context)
+    elif choice == '🎅🏻refuse':
+        print("> Модератор - ОТКЛОНИТЬ- ")
+        await Mod_Up_Refuse(state)
+
+async def Mod_Up_Approve(state: FSMContext):
+    """
+    Approve payment and grant user premium access.
+
+    Args:
+        state: FSMContext for user state management
+    """
+    TOKEN = await Get_Var('BOT_TOKEN', state)
+    Moderator_ID = await Get_Var('MOD_ID', state)
+    tarr = await Get_Var('user_tarif', state)
     print(f"Mod_Up_Approve 🎅  user_tarif {tarr}")
-    Update_step(19, context)  # Silent Hill (Last Silence befor REPLICATOR)
-    # lives = 1
-    # if tarr==2:
-        # lives = 3
-    # if tarr==3:
-        # lives = 10
-    # lives = GET_BONS(tarr)
+    await Update_step(19, state)  # Silent Hill (Last Silence befor REPLICATOR)
+
     price, vitas, lives = get_tariff_infoby_index(tarr)
     # поставили тариф платный в базу
-    save_pays(tarr)        
-    
+    save_pays(tarr)
+
     user_role = get_role()
-    if not (IsUserPreme(user_role)):        
+    if not (IsUserPreme(user_role)):
         user_role+='+'
-        save_role(user_role)  
-    # else:
-        # return
-    user_name = Get_Var ('user_nick', context)
-    payd_text = 'Оплата одобрена ✅\nОткрыт доступ в платный раздел.\nА также начислены бонусные жизни и Вита'  
+        save_role(user_role)
+
+    user_name = await Get_Var('user_nick', state)
+    payd_text = 'Оплата одобрена ✅\nОткрыт доступ в платный раздел.\nА также начислены бонусные жизни и Вита'
     payd_self = f'🧩 ОПЛАТА УСПЕШНА 🧩\n✅Игрок получает доступ в раздел "Профи" '
-    await Inc_Lives(context, lives=lives)
-    await Inc_Vitas(context, vitas=vitas)
-    await SEX(payd_text, context)
-    
-    
+    await Inc_Lives(state, lives=lives)
+    await Inc_Vitas(state, vitas=vitas)
+    await SEX(payd_text, state)
+
     text = 'Менеджер ✅ Утвердил Оплату'
-    prepay_text = Prep_MOC4(context) + '\n' + text
-    text4 = Get_Var ('mid_Start_Text', context)+ '\n' + text 
-    MSG = Get_Var ('mid_Start_Rules', context)
+    prepay_text = await Prep_MOC4(state) + '\n' + text
+    text4 = await Get_Var('mid_Start_Text', state) + '\n' + text
+    MSG = await Get_Var('mid_Start_Rules', state)
     if MSG:
-        MSG3 = await SEX(text4, context, FORMAT='B', EDIT = MSG, SENDER=LIFE_CHAT_id) # СООБЩ в ЧАТ
-    else:      
-        MSG3 = await SEX(prepay_text, context, FORMAT='B', SENDER=LIFE_CHAT_id) # СООБЩ в ЧАТ
-    
-    
-    
-    await SEX(payd_self, context, SENDER = Moderator_ID )
-    
+        MSG3 = await SEX(text4, state, FORMAT='B', EDIT = MSG, SENDER=LIFE_CHAT_id) # СООБЩ в ЧАТ
+    else:
+        MSG3 = await SEX(prepay_text, state, FORMAT='B', SENDER=LIFE_CHAT_id) # СООБЩ в ЧАТ
 
-    # Send_STICKER("крутой отчет", context)    #  Feed_Up_Approve     
-    
-async def Mod_Up_Refuse (context: ContextTypes.DEFAULT_TYPE):
-    Moderator_ID = Get_Var ('MOD_ID', context)   
-    Update_step(19, context)  # Silent Hill
-    await SEX("Оплата ❌\nОТКЛОНЕНО🙅🏼МОДЕРАТОРОМ", context)
-    await SEX("ОПЛАТА -❌- ОТКЛОНЕНО", context, SENDER=Moderator_ID)        
+    await SEX(payd_self, state, SENDER = Moderator_ID )
 
-async def REP_DOWN(context: ContextTypes.DEFAULT_TYPE):
-    text, keyb = Prep_MOC2(context)    
-    return await SEMOD(text, keyb, context)
+async def Mod_Up_Refuse(state: FSMContext):
+    """
+    Refuse payment.
+
+    Args:
+        state: FSMContext for user state management
+    """
+    Moderator_ID = await Get_Var('MOD_ID', state)
+    await Update_step(19, state)  # Silent Hill
+    await SEX("Оплата ❌\nОТКЛОНЕНО🙅🏼МОДЕРАТОРОМ", state)
+    await SEX("ОПЛАТА -❌- ОТКЛОНЕНО", state, SENDER=Moderator_ID)
+
+async def REP_DOWN(state: FSMContext):
+    """Prepare and send moderator report."""
+    text, keyb = await Prep_MOC2(state)
+    return await SEMOD(text, keyb, state)
 
 # async def REP_Refuse(context: ContextTypes.DEFAULT_TYPE):
     # text = "ОПЛАТА -❌- ОТКЛОНЕНО🙅🏼МОДЕРАТОРОМ"
@@ -166,40 +174,37 @@ async def REP_DOWN(context: ContextTypes.DEFAULT_TYPE):
     # return await Mod_Up_Refuse(text, context)
     
     
-async def SEMOD(message, keyboard, context: ContextTypes.DEFAULT_TYPE):
-    Moderator_ID = Get_Var ('MOD_ID', context)
-    Moderator_Name = Get_Var ('MOD_NAME', context)
+async def SEMOD(message: str, keyboard, state: FSMContext):
+    """
+    Send message to moderator.
+
+    Args:
+        message: Message text
+        keyboard: Keyboard markup
+        state: FSMContext for user state management
+    """
+    Moderator_ID = await Get_Var('MOD_ID', state)
+    Moderator_Name = await Get_Var('MOD_NAME', state)
     print(f"ПОСЛАНИЕ ДЛЯ МОДЕРАТОРА 🎅🏻 {Moderator_Name}")
-    return await SEX(message, context, SENDER=Moderator_ID, MENU=keyboard, FORMAT='B')
-    # context.bot.send_message(chat_id=Moderator_ID, text=message, reply_markup=keyboard)       
+    return await SEX(message, state, SENDER=Moderator_ID, MENU=keyboard, FORMAT='B')
 
-
-def Prep_MOC4(context: ContextTypes.DEFAULT_TYPE):
+async def Prep_MOC4(state: FSMContext):
+    """Prepare moderator console text (payment header)."""
     text = Form_Port(26, None)       # шапка 6м
-    name = Get_Var ('user_nick', context)
-    name2 = Get_Var ('user_name', context)
-    uid = Get_Uid(context)
-    # day = Get_Var('day', context)    
+    name = await Get_Var('user_nick', state)
+    name2 = await Get_Var('user_name', state)
+    uid = await Get_Uid(state)
     text += f"\n👩🏻 Псевдоним: {ESU(name)}➖{ESU(name2)}\n🆔 ID игрока: {uid}"
-    # keybuts = [[InlineKeyboardButton("👌🏻 ПРИНЯТЬ +💖", callback_data='☎️approve'),
-        # InlineKeyboardButton("🙅🏼 ОТКЛОНИТЬ", callback_data='☎️refuse')]]     
-    # keyboard = Make_KEYB(keybuts)  
-    return text 
-    
-    
-def Prep_MOC5(mess:str, context: ContextTypes.DEFAULT_TYPE):
-    
-    # text = Form_Port(26, None)       # шапка 6м
-    name = Get_Var ('user_nick', context)
-    # name2 = Get_Var ('user_name', context)
-    # uid = Get_Uid(context)
-    # day = Get_Var('day', context)     \n📅 ДЕНЬ: {day
-    # f"\n👩🏻 Псевдоним: {ESU(name)} aka {ESU(name2)}\n🆔 ID юзера: {uid}"
-    text = Prep_MOC4(context)
+    return text
+
+async def Prep_MOC5(mess: str, state: FSMContext):
+    """Prepare moderator console with payment approval buttons."""
+    name = await Get_Var('user_nick', state)
+    text = await Prep_MOC4(state)
     text += f'\n 🧾 *Запись добавлена в журнал* [{name} ▶️ ОПЛАТА]({mess})'
-    keybuts = [[InlineKeyboardButton("ОДОБРИТЬ👌🏻ОПЛАТУ", callback_data='🎅🏻approve'),
-        InlineKeyboardButton("ОТКЛОНИТЬ🙅🏼ОПЛАТУ", callback_data='🎅🏻refuse')]]     
-    keyboard = Make_KEYB(keybuts)  
+    keybuts = [[InlineKeyboardButton(text="ОДОБРИТЬ👌🏻ОПЛАТУ", callback_data='🎅🏻approve'),
+        InlineKeyboardButton(text="ОТКЛОНИТЬ🙅🏼ОПЛАТУ", callback_data='🎅🏻refuse')]]
+    keyboard = Make_KEYB(keybuts)
     return text, keyboard     
         
 # async def BugSpy_Handler_Old(msg:str, context: ContextTypes.DEFAULT_TYPE):

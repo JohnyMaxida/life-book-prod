@@ -1,16 +1,17 @@
 # report_manager.py
 """
-Генерация и отправка отчётов: дневных, недельных, финальных.
+Report generation and sending: daily, weekly, final reports.
+Migrated to aiogram 3.x.
 """
 
 import os
 import json
-from telegram.ext import ContextTypes
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.fsm.context import FSMContext
+from aiogram.types import InlineKeyboardButton
 from const import QUESTIONS, MODERATOR_DIR, LIFE_CHAT_ID, PAY_CHAT_ID, DEV_CHAT_ID, NUM_TASKS_PER_DAY, MAX_DAYS
 from utils import ESU, CYFER, Get_Uid, Get_Var, Set_Var, Adelay
-from ui_blocks import SEX, Make_KEYB, Make_MENU, SEX_PRO # Assuming SEX, Make_KEYB, Make_MENU, SEX_PRO are in ui_blocks.py
-from lifeman_new import get_day, get_role, get_pays, save_pays, save_role, get_credos, save_credos, IsUserPreme # Import from lifeman_new.py
+from ui_blocks import SEX, Make_KEYB, Make_MENU, SEX_PRO
+from lifeman_new import get_day, get_role, get_pays, save_pays, save_role, get_credos, save_credos, IsUserPreme
 
 # Global variable for bug reporting status
 BUG = False
@@ -134,56 +135,70 @@ def Form_Port(findex, value) -> str:
     return forma   
 
 # Bug reporting functions from moderator.py
-async def Write_BUG(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global BUG    
-    # Update_step(7, context)  # Write BUG-report - assuming Update_step is in utils.py
-    user_id = Get_Uid(context) # Assuming Get_Uid is in utils.py
-    user_name = Get_Var('user_nick', context) # Assuming Get_Var is in utils.py
+async def Write_BUG(state: FSMContext):
+    """
+    Write bug report to DEV chat.
+
+    Args:
+        state: FSMContext for user state management
+    """
+    global BUG
+    # Update_step(7, state)  # Write BUG-report
+    user_id = await Get_Uid(state)
+    user_name = await Get_Var('user_nick', state)
     t1 = Form_Port(16, None)  # шапка 1 длинная
     t2 = Form_Port(2, user_name)  # имя
     t3 = Form_Port(4, user_id) # айди
     t3 += "   >🔍>"
-    header = "\n".join([t1, t2, t3])  
-    MSG = await SEX(header, context, SENDER=DEV_CHAT_ID) # Assuming DEV_CHAT_ID is in const.py and SEX in ui_blocks.py
-    Set_Var('rep_mid', MSG.message_id, context) # Assuming Set_Var is in utils.py
+    header = "\n".join([t1, t2, t3])
+    MSG = await SEX(header, state, SENDER=DEV_CHAT_ID)
+    await Set_Var('rep_mid', MSG.message_id, state)
     BUG = True
-    await SEX_PRO('FEED_RUN', context) # Assuming SEX_PRO is in ui_blocks.py
+    await SEX_PRO('FEED_RUN', state)
 
-async def Send_BUG(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def Send_BUG(state: FSMContext):
+    """
+    Send bug report notification to moderator.
+
+    Args:
+        state: FSMContext for user state management
+    """
     global BUG
-    # Update_step(19, context)  # exit mode - assuming Update_step is in utils.py
+    # Update_step(19, state)  # exit mode
     BUG = False
-    Moderator_ID = Get_Var ('MOD_ID', context) # Assuming MOD_ID is stored in user_data
+    Moderator_ID = await Get_Var('MOD_ID', state)
     print (">> Идет Извещение Модератора: BUG-report")
-    
-    rep_mid = Get_Var('rep_mid', context)
-    chat_id = str(DEV_CHAT_ID).replace('-100', '') # Assuming DEV_CHAT_ID is in const.py
+
+    rep_mid = await Get_Var('rep_mid', state)
+    chat_id = str(DEV_CHAT_ID).replace('-100', '')
     message_link = f"https://t.me/c/{chat_id}/{rep_mid}"
     print('Репорт MSG LINK=', message_link)
-    
-    text = f"Уважаемый Модератор 🎅🏻\nВ наш DEV-чат пришел Рапорт об ошибке 🧾\n`{message_link}`" 
-    
-    await SEX(text, context, SENDER=Moderator_ID) # Assuming SEX in ui_blocks.py
-    await Adelay(0.5) # Assuming Adelay in utils.py
-    buttons = [[InlineKeyboardButton("На Страницу Статуса", callback_data='begin_game')]]
-    text = "Ввод данных закончен 👌🏻\nВаши сообщения и файлы будут высланы на проверку 🙏"
-    await Make_MENU(text, buttons, context) # Assuming Make_MENU in ui_blocks.py
 
-def Prep_MOC4(context: ContextTypes.DEFAULT_TYPE):
+    text = f"Уважаемый Модератор 🎅🏻\nВ наш DEV-чат пришел Рапорт об ошибке 🧾\n`{message_link}`"
+
+    await SEX(text, state, SENDER=Moderator_ID)
+    await Adelay(0.5)
+    buttons = [[InlineKeyboardButton(text="На Страницу Статуса", callback_data='begin_game')]]
+    text = "Ввод данных закончен 👌🏻\nВаши сообщения и файлы будут высланы на проверку 🙏"
+    await Make_MENU(text, buttons, state)
+
+async def Prep_MOC4(state: FSMContext):
+    """Prepare moderator console text (payment header)."""
     text = Form_Port(26, None)       # шапка 6м
-    name = Get_Var ('user_nick', context)
-    name2 = Get_Var ('user_name', context)
-    uid = Get_Uid(context)
+    name = await Get_Var('user_nick', state)
+    name2 = await Get_Var('user_name', state)
+    uid = await Get_Uid(state)
     text += f"\n👩🏻 Псевдоним: {ESU(name)}➖{ESU(name2)}\n🆔 ID игрока: {uid}"
-    return text 
-    
-def Prep_MOC5(mess:str, context: ContextTypes.DEFAULT_TYPE):
-    name = Get_Var ('user_nick', context)
-    text = Prep_MOC4(context)
+    return text
+
+async def Prep_MOC5(mess: str, state: FSMContext):
+    """Prepare moderator console with payment approval buttons."""
+    name = await Get_Var('user_nick', state)
+    text = await Prep_MOC4(state)
     text += f'\n 🧾 *Запись добавлена в журнал* [{name} ▶️ ОПЛАТА]({mess})'
-    keybuts = [[InlineKeyboardButton("ОДОБРИТЬ👌🏻ОПЛАТУ", callback_data='🎅🏻approve'),
-        InlineKeyboardButton("ОТКЛОНИТЬ🙅🏼ОПЛАТУ", callback_data='🎅🏻refuse')]]     
-    keyboard = Make_KEYB(keybuts) # Make_KEYB(keybuts) # Assuming Make_KEYB in ui_blocks.py
+    keybuts = [[InlineKeyboardButton(text="ОДОБРИТЬ👌🏻ОПЛАТУ", callback_data='🎅🏻approve'),
+        InlineKeyboardButton(text="ОТКЛОНИТЬ🙅🏼ОПЛАТУ", callback_data='🎅🏻refuse')]]
+    keyboard = Make_KEYB(keybuts)
     return text, keyboard     
 
 # User answers management functions from answers.py
@@ -289,34 +304,25 @@ def Update_task_response(task_index, day, response_text, user_id: int, user_path
 def delete_user_responses(user_id: int, user_path: str):
     Init_Answers(user_id, user_path)
 
-# Moderator report preparation functions from moderator.py
-def Prep_MOC4(context: ContextTypes.DEFAULT_TYPE):
-    text = Form_Port(26, None)       # шапка 6м
-    name = Get_Var ('user_nick', context)
-    name2 = Get_Var ('user_name', context)
-    uid = Get_Uid(context)
-    text += f"\n👩🏻 Псевдоним: {ESU(name)}➖{ESU(name2)}\n🆔 ID игрока: {uid}"
-    return text 
-    
-def Prep_MOC5(mess:str, context: ContextTypes.DEFAULT_TYPE):
-    name = Get_Var ('user_nick', context)
-    text = Prep_MOC4(context)
-    text += f'\n 🧾 *Запись добавлена в журнал* [{name} ▶️ ОПЛАТА]({mess})'
-    keybuts = [[InlineKeyboardButton("ОДОБРИТЬ👌🏻ОПЛАТУ", callback_data='🎅🏻approve'),
-        InlineKeyboardButton("ОТКЛОНИТЬ🙅🏼ОПЛАТУ", callback_data='🎅🏻refuse')]]     
-    keyboard = Make_KEYB(keybuts)
-    return text, keyboard
-    
 # Report generation functions
-def format_daily_report(context) -> str:
-    day = get_day(Get_Uid(context)) # Use get_day from lifeman_new
-    user_id = Get_Uid(context)
-    user_path = Get_Var('user_path', context) # Assuming user_path is stored in context
+async def format_daily_report(state: FSMContext) -> str:
+    """
+    Format daily report for user.
+
+    Args:
+        state: FSMContext for user state management
+
+    Returns:
+        Formatted report string
+    """
+    user_id = await Get_Uid(state)
+    day = get_day(user_id)
+    user_path = await Get_Var('user_path', state)
     responses = Get_day_responses(day, user_id, user_path)
-    name = Get_Var('user_nick', context)
+    name = await Get_Var('user_nick', state)
 
     report = f"📓 *Отчёт за день {day} — {name}*\n\n"
-    for i, question_text in enumerate(QUESTIONS.values()): # Use QUESTIONS from const.py
+    for i, question_text in enumerate(QUESTIONS.values()):
         answer = responses[i] if i < len(responses) else None
         status = "✅" if answer else "❌"
         report += f"{status} **{question_text}**\n"
@@ -325,16 +331,23 @@ def format_daily_report(context) -> str:
         report += "\n"
     return report
 
-async def generate_and_send_report(context, final: bool = False):
+async def generate_and_send_report(state: FSMContext, final: bool = False):
+    """
+    Generate and send report to user.
+
+    Args:
+        state: FSMContext for user state management
+        final: If True, generate final marathon report
+    """
     if final:
         # TODO: вызов freya_final + генерация PDF/HTML
         text = "🏆 *ФИНАЛЬНЫЙ ОТЧЁТ МАРАФОНА*\n\nСкоро будет доступен полный разбор от FREYA."
     else:
-        text = format_daily_report(context)
+        text = await format_daily_report(state)
 
     # Отправляем по частям, если длинный
     if len(text) > 4000:
-        # await ASPLITTER(text, context) # ASPLITTER needs to be moved or reimplemented
-        await SEX(text, context, FORMAT="B") # For now, send as one message
+        # await ASPLITTER(text, state) # ASPLITTER needs to be moved or reimplemented
+        await SEX(text, state, FORMAT="B") # For now, send as one message
     else:
-        await SEX(text, context, FORMAT="B") # parse_mode="Markdown" is handled by FORMAT='B'
+        await SEX(text, state, FORMAT="B") # parse_mode="Markdown" is handled by FORMAT='B'

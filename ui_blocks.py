@@ -2,16 +2,16 @@ import os
 import mimetypes
 import html
 from logger import logger
-from telegram.ext import ContextTypes
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile
 import requests  # For Send_Stik
 from typing import Any, Dict, List, Optional, Union, Callable, Awaitable
 from aiogram.types import (
-    InlineKeyboardMarkup, InlineKeyboardButton, 
-    ReplyKeyboardMarkup, KeyboardButton, 
-    Message, ReplyKeyboardRemove, CallbackQuery
+    InlineKeyboardMarkup, InlineKeyboardButton,
+    ReplyKeyboardMarkup, KeyboardButton,
+    Message, ReplyKeyboardRemove, CallbackQuery,
+    InputFile
 )
-from lifeBlock import LIFE_BLOCK  # For Send_Stik
+from aiogram.fsm.context import FSMContext
+from lifeBlock import LIFE_BLOCK
 from utils import Get_Uid, Get_Var, Adelay, ESC, ESU
 from const import (
     ARTBLOK_DIR,
@@ -61,39 +61,62 @@ PARSE_MODE_HTML = 'HTML'
 PARSE_MODE_MARKDOWN = 'Markdown'  # Using Markdown v1
 
 async def SEX(
-    text: str, 
-    context: ContextTypes.DEFAULT_TYPE, 
-    SENDER: int = None, 
-    DOC = None, 
-    EDIT = None, 
-    MENU = None, 
+    text: str,
+    context: Union[FSMContext, Message],
+    message: Message = None,
+    SENDER: int = None,
+    DOC = None,
+    EDIT = None,
+    MENU = None,
     FORMAT: str = None
 ):
     """
     Universal function for sending and editing messages with aiogram 3.x
-    
+
     Args:
         text: Message text
-        context: Context object
+        context: FSM context or Message object
+        message: Message object (if context is FSMContext)
         SENDER: Optional chat_id to send to
         DOC: Document to send (path or InputFile)
         EDIT: Message ID to edit (if editing)
         MENU: Inline keyboard markup
         FORMAT: Format string (e.g., 'HTML', 'Markdown')
-        
+
     Returns:
         Message object or None if error
     """
-    from aiogram.types import Message, InputFile as AiogramInputFile
+    from aiogram.types import Message as AiogramMessage, InputFile as AiogramInputFile
     from aiogram.enums import ParseMode
-    
+
     try:
-        # Get user and chat IDs
-        user_id = context.user.id if hasattr(context, 'user') else None
-        chat_id = SENDER if SENDER else (context.chat.id if hasattr(context, 'chat') else user_id)
-        
-        if not chat_id:
-            raise ValueError("No chat_id available for sending message")
+        # Determine the bot and chat_id
+        # If context is a Message object, use it directly
+        if isinstance(context, AiogramMessage):
+            message = context
+            bot = message.bot
+            chat_id = SENDER if SENDER else message.chat.id
+        # If message is provided separately
+        elif message:
+            bot = message.bot
+            chat_id = SENDER if SENDER else message.chat.id
+        # Fallback - try to get from SENDER
+        elif SENDER:
+            # We need a bot instance - this is a problem
+            # In this case, we'll need to get it from somewhere
+            chat_id = SENDER
+            bot = None  # Will be set below if available
+        else:
+            raise ValueError("No message or chat_id available for sending message")
+
+        # If we still don't have a bot, we have a problem
+        if not bot and hasattr(context, 'bot'):
+            bot = context.bot
+        elif not bot and message and hasattr(message, 'bot'):
+            bot = message.bot
+
+        if not bot:
+            raise ValueError("No bot instance available")
             
         # Parse format options
         parse_mode = None
@@ -108,7 +131,7 @@ async def SEX(
         if EDIT:
             if DOC:
                 # Edit message with document
-                return await context.bot.edit_message_caption(
+                return await bot.edit_message_caption(
                     chat_id=chat_id,
                     message_id=EDIT,
                     caption=text,
@@ -117,14 +140,14 @@ async def SEX(
                 )
             elif text is None and MENU is not None:
                 # Edit only reply markup
-                return await context.bot.edit_message_reply_markup(
+                return await bot.edit_message_reply_markup(
                     chat_id=chat_id,
                     message_id=EDIT,
                     reply_markup=MENU
                 )
             else:
                 # Edit text message
-                return await context.bot.edit_message_text(
+                return await bot.edit_message_text(
                     chat_id=chat_id,
                     message_id=EDIT,
                     text=text,
@@ -132,18 +155,18 @@ async def SEX(
                     parse_mode=parse_mode,
                     disable_web_page_preview=True
                 )
-                
+
         # Handle document sending
         if DOC:
             if not isinstance(DOC, AiogramInputFile):
                 DOC = AiogramInputFile(DOC)
-            
+
             # Get MIME type
-            mime_type, _ = mimetypes.guess_type(DOC.filename)
-            
+            mime_type, _ = mimetypes.guess_type(DOC.filename) if hasattr(DOC, 'filename') else (None, None)
+
             # Handle different document types
             if mime_type == 'audio/ogg':
-                return await context.bot.send_voice(
+                return await bot.send_voice(
                     chat_id=chat_id,
                     voice=DOC,
                     caption=text,
@@ -151,7 +174,7 @@ async def SEX(
                     parse_mode=parse_mode
                 )
             elif mime_type and mime_type.startswith('image/'):
-                return await context.bot.send_photo(
+                return await bot.send_photo(
                     chat_id=chat_id,
                     photo=DOC,
                     caption=text,
@@ -159,7 +182,7 @@ async def SEX(
                     parse_mode=parse_mode
                 )
             elif mime_type and mime_type.startswith('video/'):
-                return await context.bot.send_video(
+                return await bot.send_video(
                     chat_id=chat_id,
                     video=DOC,
                     caption=text,
@@ -168,16 +191,16 @@ async def SEX(
                 )
             else:
                 # Default to document
-                return await context.bot.send_document(
+                return await bot.send_document(
                     chat_id=chat_id,
                     document=DOC,
                     caption=text,
                     reply_markup=MENU,
                     parse_mode=parse_mode
                 )
-        
+
         # Default text message
-        return await context.bot.send_message(
+        return await bot.send_message(
             chat_id=chat_id,
             text=text,
             reply_markup=MENU,
@@ -189,36 +212,43 @@ async def SEX(
         logger.error(f"Error in SEX function: {e}", exc_info=True)
         return None
 
-async def SEFoB(block, block_tex:str, context: ContextTypes.DEFAULT_TYPE):
+async def SEFoB(block, block_tex: str, context: Union[FSMContext, Message], message: Message = None):
     block_pic = GetArt(block)
     if block_pic:
-        print ("SEFoB: Найдена фотка, отправляем фото-блок")
+        print("SEFoB: Найдена фотка, отправляем фото-блок")
         with open(block_pic, 'rb') as photo:
-            await SEX(block_tex, context, DOC = photo, FORMAT = 'B')
+            await SEX(block_tex, context, message, DOC=photo, FORMAT='B')
     else:
-        print ("SEFoB: Фотка не найдена, отправляем текст")
-        await SEX(block_tex, context, FORMAT = 'B')
+        print("SEFoB: Фотка не найдена, отправляем текст")
+        await SEX(block_tex, context, message, FORMAT='B')
 
-async def SEFoM(block, block_tex, keyb, context: ContextTypes.DEFAULT_TYPE):
+async def SEFoM(block, block_tex, keyb, context: Union[FSMContext, Message], message: Message = None):
     block_pic = GetArt(block)
     if block_pic:
-        print ("SEFoM: Найдена фотка, отправляем фото-блок c меню")
+        print("SEFoM: Найдена фотка, отправляем фото-блок c меню")
         with open(block_pic, 'rb') as photo:
-            await SEX(block_tex, context, DOC = photo, MENU = keyb, FORMAT = 'B')
+            await SEX(block_tex, context, message, DOC=photo, MENU=keyb, FORMAT='B')
     else:
-        print ("SEFoM: Фотка не найдена, отправляем текст c меню")
-        await SEX(block_tex, context, MENU = keyb, FORMAT = 'B')
+        print("SEFoM: Фотка не найдена, отправляем текст c меню")
+        await SEX(block_tex, context, message, MENU=keyb, FORMAT='B')
 
-async def Make_MENU(text, buttons, context: ContextTypes.DEFAULT_TYPE):
+async def Make_MENU(text, buttons, context: Union[FSMContext, Message], message: Message = None):
     keyboard = Make_KEYB(buttons)
-    return await SEX(text, context, MENU=keyboard)
+    return await SEX(text, context, message, MENU=keyboard)
 
-async def Make_MENB(text, buttons, context: ContextTypes.DEFAULT_TYPE):
+async def Make_MENB(text, buttons, context: Union[FSMContext, Message], message: Message = None):
     keyboard = Make_KEYB(buttons)
-    return await SEX(text, context, MENU=keyboard, FORMAT = 'B')
+    return await SEX(text, context, message, MENU=keyboard, FORMAT='B')
 
 def Make_KEYB(buts):
-    return InlineKeyboardMarkup(buts)
+    """Create inline keyboard markup from button list."""
+    if not buts:
+        return None
+    # Check if buts is already in correct format (list of lists of InlineKeyboardButton)
+    if isinstance(buts, list) and len(buts) > 0 and isinstance(buts[0], list):
+        return InlineKeyboardMarkup(inline_keyboard=buts)
+    # Otherwise assume it's a flat list and wrap each button
+    return InlineKeyboardMarkup(inline_keyboard=[[b] for b in buts])
 
 def Send_Stik(chat_id, sticker_id, token):
     url = f"https://api.telegram.org/bot{token}/sendSticker"
@@ -228,18 +258,20 @@ def Send_Stik(chat_id, sticker_id, token):
     response = requests.post(url, params = DATA)
     return response.json()
 
-async def Scroll_chat_down(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = Get_Uid(context)
-    message = " "
+async def Scroll_chat_down(message: Message):
+    """Scroll chat down by sending empty messages."""
+    user_id = message.from_user.id
+    text = " "
     max_attempts = 2
-    last_message = await context.bot.send_message(chat_id=user_id, text="⌛️")
+    bot = message.bot
+    last_message = await bot.send_message(chat_id=user_id, text="⌛️")
     print("@ Начали скроллинг.", end='', flush=True)
     for attempt in range(max_attempts):
         try:
             print(".>.", end='', flush=True)
-            await context.bot.send_message(
+            await bot.send_message(
                 chat_id=user_id,
-                text=message,
+                text=text,
                 disable_notification=True)
             print("Скроллинг выполнен успешно @", flush=True)
             break
@@ -249,17 +281,18 @@ async def Scroll_chat_down(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await Adelay(2)
     print("Забили на скроллинг @", flush=True)
     try:
-        await delete_bot_message(last_message, context)
+        await delete_bot_message(last_message)
     except Exception as e:
         print(f"Ошибка при удалении сообщения: {e}")
     return False
 
-async def delete_bot_message(message, context: ContextTypes.DEFAULT_TYPE):
-    if message and hasattr(message, 'chat_id') and hasattr(message, 'message_id'):
+async def delete_bot_message(message: Message):
+    """Delete a bot message."""
+    if message and hasattr(message, 'chat') and hasattr(message, 'message_id'):
         try:
-            print(f"Пробуем удалить сообщение {message.message_id} в чате {message.chat_id}")
-            await context.bot.delete_message(
-                chat_id=message.chat_id,
+            print(f"Пробуем удалить сообщение {message.message_id} в чате {message.chat.id}")
+            await message.bot.delete_message(
+                chat_id=message.chat.id,
                 message_id=message.message_id
             )
             print("Сообщение успешно удалено")
@@ -268,22 +301,25 @@ async def delete_bot_message(message, context: ContextTypes.DEFAULT_TYPE):
     else:
         print("Некорректный объект сообщения для удаления")
 
-async def UMR(text:str, update: Update):
-    return await update.message.reply_text(text)
+async def UMR(text: str, message: Message):
+    """Reply to message with text."""
+    return await message.reply(text)
 
-async def MAKE_DAYBACK(context: ContextTypes.DEFAULT_TYPE):
-    await SEX("/start👉🏻Меню🕰Дня  /help👉🏻Помощь❓Команд", context)
+async def MAKE_DAYBACK(context: Union[FSMContext, Message], message: Message = None):
+    """Send day back menu."""
+    await SEX("/start👉🏻Меню🕰Дня  /help👉🏻Помощь❓Команд", context, message)
 
-async def MAKE_REFBACK(context: ContextTypes.DEFAULT_TYPE):
-    await SEX("🔰 Возврат в Реферальную Панель 👉🏻 /refer", context)
+async def MAKE_REFBACK(context: Union[FSMContext, Message], message: Message = None):
+    """Send referral back menu."""
+    await SEX("🔰 Возврат в Реферальную Панель 👉🏻 /refer", context, message)
 
-async def delete_user_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    last_message = update.effective_message
-    if last_message.from_user.id != context.bot.id:
+async def delete_user_message(message: Message):
+    """Delete a user message."""
+    if message.from_user.id != message.bot.id:
         try:
-            await context.bot.delete_message(
-                chat_id=last_message.chat_id,
-                message_id=last_message.message_id
+            await message.bot.delete_message(
+                chat_id=message.chat.id,
+                message_id=message.message_id
             )
         except Exception as e:
             print(f"Error deleting message: {e}")
@@ -541,9 +577,10 @@ async def show_block(message, block_name: str, user_data: dict = None, final_cal
         await start_callback(block_name, message, user_data or {})
 
 async def send_block(
-    block_title: str, 
-    context: ContextTypes.DEFAULT_TYPE, 
-    chat_id: int = None, 
+    block_title: str,
+    context: Union[FSMContext, Message],
+    message: Message = None,
+    chat_id: int = None,
     **format_kwargs
 ) -> bool:
     """Send a block by its title."""
@@ -551,20 +588,21 @@ async def send_block(
     if not block:
         print(f"Block '{block_title}' not found")
         return False
-        
+
     text = format_block_text(block, **format_kwargs)
     keyboard = create_menu_from_block(block)
     picture = block.get('picture')
-    
+
     if not chat_id:
-        if hasattr(context, 'chat') and hasattr(context.chat, 'id'):
+        # Try to get chat_id from message or context
+        if isinstance(context, Message):
             chat_id = context.chat.id
-        elif hasattr(context, 'user') and hasattr(context.user, 'id'):
-            chat_id = context.user.id
+        elif message:
+            chat_id = message.chat.id
         else:
             print("No chat_id available")
             return False
-    
+
     try:
         if picture:
             picture_path = GetArt(picture)
@@ -573,26 +611,29 @@ async def send_block(
                     await SEX(
                         text=text,
                         context=context,
+                        message=message,
                         SENDER=chat_id,
                         DOC=photo,
                         MENU=keyboard,
-                        FORMAT='B'  # MarkdownV2
+                        FORMAT='B'
                     )
             else:
                 await SEX(
                     text=text,
                     context=context,
+                    message=message,
                     SENDER=chat_id,
                     MENU=keyboard,
-                    FORMAT='B'  # MarkdownV2
+                    FORMAT='B'
                 )
         else:
             await SEX(
                 text=text,
                 context=context,
+                message=message,
                 SENDER=chat_id,
                 MENU=keyboard,
-                FORMAT='B'  # MarkdownV2
+                FORMAT='B'
             )
         return True
     except Exception as e:
@@ -600,15 +641,29 @@ async def send_block(
         return False
 
 # Alias for backward compatibility
-SEX_PRO = send_block
+async def SEX_PRO(block_title: str, context: Union[FSMContext, Message], message: Message = None, **format_kwargs) -> bool:
+    """Send a block (alias for send_block)."""
+    return await send_block(block_title, context, message, **format_kwargs)
 
-async def SEX_PROD(block_pak, context: ContextTypes.DEFAULT_TYPE):
-    """Display a product block with the specified name."""
-    return await send_block(block_pak, context)
+async def SEX_PROD(block_pak: tuple, context: Union[FSMContext, Message], message: Message = None):
+    """Display a product block with the specified package (text, keyboard, picture)."""
+    text, keyboard, picture_path = block_pak
 
-def SEMOD(message, keyboard, context: ContextTypes.DEFAULT_TYPE, SENDER_ID: int):
+    # Get message for bot access
+    msg = message if message else (context if isinstance(context, Message) else None)
+    if not msg:
+        logger.error("No message available for SEX_PROD")
+        return None
+
+    if picture_path and os.path.exists(picture_path):
+        with open(picture_path, 'rb') as photo:
+            return await SEX(text, context, message, DOC=photo, MENU=keyboard, FORMAT='B')
+    else:
+        return await SEX(text, context, message, MENU=keyboard, FORMAT='B')
+
+async def SEMOD(text: str, keyboard, context: Union[FSMContext, Message], message: Message = None, SENDER_ID: int = None):
     """Send a message with the specified keyboard to the specified user."""
-    return SEX(message, context, SENDER=SENDER_ID, MENU=keyboard)
+    return await SEX(text, context, message, SENDER=SENDER_ID, MENU=keyboard)
 
 
 def build_main_menu(user_data: dict = None) -> InlineKeyboardMarkup:

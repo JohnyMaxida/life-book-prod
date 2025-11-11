@@ -1,5 +1,9 @@
-# TEMPORAL 
-from telegram import Update
+# TEMPORAL
+"""
+Temporal functions for time and timezone management.
+Pure Python module - no Telegram API dependencies.
+"""
+# Removed unused import: from telegram import Update
 import asyncio, pytz, requests
 from tzlocal import get_localzone
 from datetime import time, datetime, timedelta, timezone, tzinfo

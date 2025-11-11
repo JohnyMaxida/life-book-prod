@@ -3,8 +3,8 @@ import json
 import html
 import asyncio
 from datetime import datetime, timedelta, time
-from telegram.ext import ContextTypes
-from telegram import Update
+from aiogram.types import Message, CallbackQuery
+from aiogram.fsm.context import FSMContext
 from babel.dates import format_date
 import pytz
 from tzlocal import get_localzone
@@ -16,21 +16,29 @@ BOT_NAME = None
 ART_DIR = None
 ARTBLOK_DIR = None
 
-# User data management (placeholders, actual implementation will be in lifeman_new.py or db_manager.py)
-def Get_Uid(context: ContextTypes.DEFAULT_TYPE):
-    return context.user_data.get('user_id')
+# User data management using aiogram 3.x FSMContext
+async def Get_Uid(state: FSMContext):
+    """Get user ID from FSM state storage."""
+    data = await state.get_data()
+    return data.get('user_id')
 
-def Get_Var(variable:str, context: ContextTypes.DEFAULT_TYPE):
-    return context.user_data.get(variable)
+async def Get_Var(variable: str, state: FSMContext):
+    """Get a variable from FSM state storage."""
+    data = await state.get_data()
+    return data.get(variable)
 
-def Get_VAR(variable:str, defvalue, context: ContextTypes.DEFAULT_TYPE):
-    return context.user_data.get(variable, defvalue)
+async def Get_VAR(variable: str, defvalue, state: FSMContext):
+    """Get a variable from FSM state storage with default value."""
+    data = await state.get_data()
+    return data.get(variable, defvalue)
 
-def Set_Var(variable:str, value, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data[variable] = value
+async def Set_Var(variable: str, value, state: FSMContext):
+    """Set a variable in FSM state storage."""
+    await state.update_data({variable: value})
 
-def Update_step(index, context: ContextTypes.DEFAULT_TYPE):
-    Set_Var('step', index, context)
+async def Update_step(index, state: FSMContext):
+    """Update the current step index in FSM state."""
+    await Set_Var('step', index, state)
 
 # File and directory utilities
 def Create_user_folders(mod_dir, user_folder):

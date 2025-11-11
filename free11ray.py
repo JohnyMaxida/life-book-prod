@@ -1,8 +1,12 @@
+"""
+Free11ray AI driver for Life-Book Bot.
+Migrated to aiogram 3.x - AI logic preserved intact.
+"""
 import os, requests, json
-from telegram import Update
-from telegram.ext import ContextTypes
+from aiogram.fsm.context import FSMContext
+# Removed: from telegram import Update, ContextTypes
 
-from passive import Adelay
+from utils import Adelay
 from fre0lib import ASPLITTER, Parse_TeLinx, Parse_Linx, Pic_Find, Gechate, format_to_md, SEX, parse_website
 from fre0gen import Make_Pic
 # from dotenv import load_dotenv
