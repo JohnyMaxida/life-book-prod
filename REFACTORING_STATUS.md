@@ -252,11 +252,23 @@ Legend:
 4. `logical_new.py` - Complete flow implementation
 5. `ui_blocks.py` - Full aiogram 3.x migration
 
-### Phase 2 (Current Session)
+### Phase 2 (Session 2)
 6. `utils.py` - Full aiogram 3.x migration (FSMContext)
 7. `media_handler.py` - Full aiogram 3.x migration
 8. `cron_manager.py` - Full aiogram 3.x migration
 9. `REFACTORING_STATUS.md` - Updated with current progress
+
+### Phase 3 (Session 3 - Current)
+10. `passive.py` - Complete refactoring (879→456 lines):
+    - Removed duplicate functions (Get_Uid, Get_Var, Set_Var, Update_step, UMR, ESC, SEX, SEFoB, SEFoM, Make_MENU, Make_MENB, Make_KEYB)
+    - Migrated all unique functions to aiogram 3.x (Bot, Message, FSMContext)
+    - Added comprehensive docstrings
+    - Import refactored functions from utils.py and ui_blocks.py
+11. `active.py` - Complete refactoring (357→383 lines):
+    - Removed wildcard import from passive (specific imports instead)
+    - Removed duplicate functions (Inc_Day, Inc_Day_syn, AUTODAY now in cron_manager.py)
+    - Migrated all functions to aiogram 3.x (Bot, FSMContext)
+    - Added comprehensive docstrings and type hints
 
 ### Verified Already Migrated
 - `lifebook.py` - Already on aiogram 3.x
@@ -268,36 +280,34 @@ Legend:
 
 ## Remaining Work
 
-### Critical Modules (7 files)
-1. `passive.py` - ~1000 lines, many helper functions
-2. `active.py` - ~500 lines, active functions
-3. `report_manager.py` - Report generation
-4. `temporal.py` - Time/date functions
-5. `moderator.py` - Moderator commands
-6. `ai_manager.py` - AI integration manager
-7. `ambacron.py` - DEPRECATED (remove or consolidate)
+### Critical Modules (5 files)
+1. `report_manager.py` - Report generation
+2. `temporal.py` - Time/date functions
+3. `moderator.py` - Moderator commands
+4. `ai_manager.py` - AI integration manager
+5. `ambacron.py` - DEPRECATED (remove or consolidate)
 
 ### AI Modules (3 files - careful refactoring)
-8. `fre0lib.py` - AI library
-9. `free11ray.py` - AI ray
-10. `fre0gen.py` - AI generation
+6. `fre0lib.py` - AI library
+7. `free11ray.py` - AI ray
+8. `fre0gen.py` - AI generation
 
 ## Progress Summary
 
-**✅ Completed**: 12 modules fully migrated to aiogram 3.x
-**⚠️ Remaining**: 10 modules need migration (7 critical + 3 AI)
+**✅ Completed**: 14 modules fully migrated to aiogram 3.x
+**⚠️ Remaining**: 8 modules need migration (5 critical + 3 AI)
 **❌ Deprecated**: 1 module (ambacron.py)
 
-**Overall Progress**: ~55% complete (12/22 modules)
+**Overall Progress**: ~64% complete (14/22 modules)
 
 ## Estimated Effort Remaining
 
-- Migrate passive.py and active.py: 4-6 hours
-- Migrate remaining 5 modules: 3-4 hours
+- ~~Migrate passive.py and active.py: 4-6 hours~~ ✅ COMPLETED
+- Migrate remaining 4 modules: 2-3 hours
 - Migrate AI modules (careful): 2-3 hours
 - Remove ambacron.py: 30 minutes
 - Testing and bug fixes: 4-6 hours
-- **Total Remaining**: 14-20 hours
+- **Total Remaining**: 9-13 hours
 
 ---
-Last Updated: 2025-11-11 (Session 2)
+Last Updated: 2025-11-11 (Session 3)
