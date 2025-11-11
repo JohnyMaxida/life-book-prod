@@ -1,4 +1,8 @@
 # Freon Lib 1.2
+"""
+Freon AI Library for Life-Book Bot.
+Migrated to aiogram 3.x - AI logic preserved intact.
+"""
 import asyncio
 import os, io, re
 from pydub import AudioSegment
@@ -6,9 +10,8 @@ import speech_recognition as sr
 import subprocess
 import requests
 from bs4 import BeautifulSoup
-from telegram import Update
-from telegram.ext import ContextTypes
-# , , InputTextMessageContent, InlineQueryResultArticle
+from aiogram.fsm.context import FSMContext
+# Removed: from telegram import Update, ContextTypes
 import mistune
 import pdfplumber
 import html

@@ -1,4 +1,15 @@
 # AMBACRON
+"""
+DEPRECATED MODULE - This module is deprecated and scheduled for removal.
+All cron functionality has been migrated to cron_manager.py.
+
+This file is kept temporarily for reference but should not be used.
+Use cron_manager.py instead.
+"""
+# ⚠️ WARNING: This module uses old Telegram API and is DEPRECATED
+# ⚠️ All functions have been moved to cron_manager.py
+# ⚠️ This file will be removed in future versions
+
 from telegram import Update
 from telegram.ext import ContextTypes
 from lifeman import getdb_time, savedb_time, get_timezone
