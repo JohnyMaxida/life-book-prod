@@ -1,0 +1,33 @@
+# Core Dependencies
+aiogram>=3.0.0
+python-dotenv>=0.19.0
+python-dateutil>=2.8.2
+pytz>=2021.3
+aiohttp>=3.8.0
+apscheduler>=3.9.0
+
+# Database
+aiosqlite>=0.17.0
+sqlalchemy>=2.0.0
+alembic>=1.8.0
+
+# Audio Processing
+SpeechRecognition>=3.8.1
+pydub>=0.25.1
+ffmpeg-python>=0.2.0
+
+# Utilities
+requests>=2.26.0
+python-multipart>=0.0.5
+babel>=2.9.1
+python-jose[cryptography]>=3.3.0
+
+# Development
+pytest>=6.2.5
+pytest-asyncio>=0.15.1
+black>=21.12b0
+mypy>=0.930
+pylint>=2.12.2
+watchdog>=2.1.6
+paramiko>=3.0.0
+python-magic>=0.4.24
